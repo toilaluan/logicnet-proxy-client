@@ -292,3 +292,13 @@ class ImageGenerationService:
 
 
 app = ImageGenerationService()
+
+
+@app.app.get("/validators")
+async def get_validators():
+    return await app.get_validators()
+
+
+@app.app.post("/generate")
+async def generate(request: Request, synapse: LogicSynapse):
+    return await app.generate(request, synapse)
