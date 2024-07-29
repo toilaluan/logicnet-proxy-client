@@ -46,7 +46,7 @@ allowed_origins = [
 ]
 
 
-class ImageGenerationService:
+class LogicService:
     def __init__(self):
         self.subtensor = bt.subtensor("finney")
         self.metagraph = self.subtensor.metagraph(23)
@@ -77,9 +77,7 @@ class ImageGenerationService:
         self.public_key_bytes = self.public_key.public_bytes(
             encoding=serialization.Encoding.Raw, format=serialization.PublicFormat.Raw
         )
-        model_list_entry = self.dbhandler.model_config.find_one({"name": "model_list"})
-        self.model_list = model_list_entry["data"] if model_list_entry else {}
-        self.message = "image-generating-subnet"
+        self.message = "logicnet"
         self.signature = base64.b64encode(
             self.private_key.sign(self.message.encode("utf-8"))
         )
@@ -291,7 +289,7 @@ class ImageGenerationService:
         return list(self.available_validators.keys())
 
 
-app = ImageGenerationService()
+app = LogicService()
 
 
 @app.app.get("/validators")
