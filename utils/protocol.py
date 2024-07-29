@@ -1,9 +1,8 @@
-import bittensor as bt
 import pydantic
 from typing import Union
 
 
-class LogicSynapse(bt.Synapse):
+class LogicSynapse(pydantic.BaseModel):
     """
     Logic Synapse for the LogicNet protocol
     """
