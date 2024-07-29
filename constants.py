@@ -22,3 +22,4 @@ class CollectionName(Enum):
     AUTH_KEYS = "auth_keys"
     MODEL_CONFIG = "model_config"
     PRIVATE_KEY = "private_key"
+    MINER_INFOMATION = "miner_information"

@@ -32,6 +32,9 @@ class SynapseRequest(BaseModel):
     api_key: str
     synapse: LogicSynapse
 
+class MinerInformation(BaseModel):
+    validator_uid: int
+    miner_information: dict = {}
 
 def get_api_key(request: Request):
     return request.headers.get("API_KEY", get_remote_address(request))
@@ -46,7 +49,7 @@ MONGO_DB_PASSWORD = os.getenv("MONGO_DB_PASSWORD")
 # Define a list of allowed origins (domains)
 allowed_origins = [
     "http://localhost:3000",  # Change this to the domain you want to allow
-    "https://nichetensor.com",
+    "https://aitprotocol.ai",
 ]
 
 
@@ -254,7 +257,6 @@ class LogicService:
 
     def recheck_validators(self) -> None:
         request_dict = {
-            "recheck": True,
             "authorization": base64.b64encode(self.public_key_bytes).decode("utf-8"),
         }
 
@@ -292,6 +294,19 @@ class LogicService:
     async def get_validators(self) -> List:
         return list(self.available_validators.keys())
 
+    async def store_miner_information(self, data: MinerInformation):
+        self.dbhandler.miner_information.update_one(
+            {"validator_uid": data.validator_uid}, {"$set": data.miner_information}, upsert=True
+        )
+
+    async def get_miner_information(self, validator_uid: int):
+        miner_info = self.dbhandler.miner_information.find_one(
+            {"validator_uid": validator_uid}
+        )
+        return miner_info
+        
+
+
 
 app = LogicService()
 
@@ -308,3 +323,11 @@ async def generate(request: Request, synapse: SynapseRequest):
 @app.app.post("/get_credentials")
 async def get_credentials(request: Request, validator_info: ValidatorInfo):
     return await app.get_credentials(request, validator_info)
+
+@app.app.post("/store_miner_information")
+async def store_miner_information(data: MinerInformation):
+    return await app.store_miner_information(data)
+
+@app.app.get("/get_miner_information/{validator_uid}")
+async def get_miner_information(validator_uid: int):
+    return await app.get_miner_information(validator_uid)
