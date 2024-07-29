@@ -28,6 +28,10 @@ class ValidatorInfo(BaseModel):
     all_uid_info: dict = {}
     sha: str = ""
 
+class SynapseRequest(BaseModel):
+    api_key: str
+    synapse: LogicSynapse
+
 
 def get_api_key(request: Request):
     return request.headers.get("API_KEY", get_remote_address(request))
@@ -162,10 +166,9 @@ class LogicService:
             "signature": self.signature,
         }
 
-    async def generate(self, request: Request, synapse: LogicSynapse) -> Dict:
+    async def generate(self, request: Request, synapse_request: SynapseRequest) -> Dict:
         self.sync_db()
-        api_key = get_api_key(request)
-        self.check_auth(api_key)
+        self.check_auth(synapse_request.api_key)
 
         validatorItems = self.available_validators.items()
         hotkeys = [hotkey for hotkey, log in validatorItems if log["is_active"]]
@@ -177,8 +180,11 @@ class LogicService:
 
         validators = list(zip(hotkeys, stakes))
 
+        if len(validators) == 0:
+            raise HTTPException(status_code=400, detail="No available validators")
+
         request_dict = {
-            "payload": synapse.dict(),
+            "payload": synapse_request.synapse.dict(),
             "authorization": base64.b64encode(self.public_key_bytes).decode("utf-8"),
         }
         output = None
@@ -249,8 +255,7 @@ class LogicService:
 
     def recheck_validators(self) -> None:
         request_dict = {
-            "payload": {"recheck": True},
-            "model_name": "proxy-service",
+            "recheck": True,
             "authorization": base64.b64encode(self.public_key_bytes).decode("utf-8"),
         }
 
@@ -298,5 +303,9 @@ async def get_validators():
 
 
 @app.app.post("/generate")
-async def generate(request: Request, synapse: LogicSynapse):
+async def generate(request: Request, synapse: SynapseRequest):
     return await app.generate(request, synapse)
+
+@app.app.post("/get_credentials")
+async def get_credentials(request: Request, validator_info: ValidatorInfo):
+    return await app.get_credentials(request, validator_info)
