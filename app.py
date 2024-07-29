@@ -23,7 +23,7 @@ from utils.protocol import LogicSynapse
 
 
 class ValidatorInfo(BaseModel):
-    postfix: str
+    port: int
     uid: int
     all_uid_info: dict = {}
     sha: str = ""
@@ -140,16 +140,14 @@ class LogicService:
         client_ip = request.client.host
         uid = validator_info.uid
         hotkey = self.metagraph.hotkeys[uid]
-        postfix = validator_info.postfix
-
-        if not postfix:
-            raise HTTPException(status_code=404, detail="Invalid postfix")
+        port = validator_info.port
 
         new_validator = self.available_validators.setdefault(hotkey, {})
         new_validator.update(
             {
-                "generate_endpoint": "http://" + client_ip + postfix,
+                "generate_endpoint": f"http://{client_ip}:{port}/validator_proxy",
                 "is_active": True,
+                "recheck_endpoint": f"http://{client_ip}:{port}/recheck",
             }
         )
 
@@ -184,9 +182,10 @@ class LogicService:
             raise HTTPException(status_code=400, detail="No available validators")
 
         request_dict = {
-            "payload": synapse_request.synapse.dict(),
+            "synapse_request": synapse_request.synapse.dict(),
             "authorization": base64.b64encode(self.public_key_bytes).decode("utf-8"),
         }
+        print(request_dict)
         output = None
         while len(validators) and not output:
             stakes = [stake for _, stake in validators]
@@ -263,7 +262,7 @@ class LogicService:
             with httpx.Client(timeout=httpx.Timeout(8)) as client:
                 try:
                     response = client.post(
-                        self.available_validators[hotkey]["generate_endpoint"],
+                        self.available_validators[hotkey]["recheck_endpoint"],
                         json=request_dict,
                     )
                     response.raise_for_status()
