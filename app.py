@@ -296,9 +296,8 @@ class LogicService:
 
     async def store_miner_information(self, data: MinerInformation):
         self.dbhandler.miner_information.update_one(
-            {"validator_uid": data.validator_uid}, {"$set": data.miner_information}, upsert=True
+            {"validator_uid": data.validator_uid}, {"$set": data.dict()}, upsert=True
         )
-
     async def get_miner_information(self, validator_uid: int):
         miner_info = self.dbhandler.miner_information.find_one(
             {"validator_uid": validator_uid}
