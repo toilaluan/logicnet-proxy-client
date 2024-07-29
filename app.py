@@ -298,12 +298,15 @@ class LogicService:
         self.dbhandler.miner_information.update_one(
             {"validator_uid": data.validator_uid}, {"$set": data.dict()}, upsert=True
         )
-    async def get_miner_information(self, validator_uid: int):
-        miner_info = self.dbhandler.miner_information.find_one(
-            {"validator_uid": validator_uid}
-        )
-        return miner_info
-        
+
+    async def get_miner_information(self):
+        validator_info = {}
+        for validator in self.dbhandler.miner_information.find():
+            uid = validator['validator_uid']
+            validator_info[uid] = {
+                "miner_information": validator["miner_information"]
+            }
+        return validator_info
 
 
 
@@ -327,6 +330,6 @@ async def get_credentials(request: Request, validator_info: ValidatorInfo):
 async def store_miner_information(data: MinerInformation):
     return await app.store_miner_information(data)
 
-@app.app.get("/get_miner_information/{validator_uid}")
-async def get_miner_information(validator_uid: int):
-    return await app.get_miner_information(validator_uid)
+@app.app.get("/get_miner_information")
+async def get_miner_information():
+    return await app.get_miner_information()
