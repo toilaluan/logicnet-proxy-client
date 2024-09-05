@@ -48,7 +48,8 @@ MONGO_DB_PASSWORD = os.getenv("MONGO_DB_PASSWORD")
 
 NUM_TOP_MINER = 20
 CAL_MEAN_SCORE_DURATION = 15 * 60
-CAL_MEAN_SCORE_OF_ALL_MINER_DURATION = 60 * 60
+CAL_MEAN_SCORE_OF_ALL_MINER_DURATION = 4 * 60 * 60
+MAX_STORE_TIME_MEAN_SCORE = 7 * 24 * 60 * 60
 
 # Define a list of allowed origins (domains)
 allowed_origins = [
@@ -321,7 +322,6 @@ class LogicService:
                 reward_logs = data.miner_information[uid]["reward_logs"]
                 accuracy = [x["correctness"] for x in reward_logs]
                 mean_accuracy = sum(accuracy) / len(accuracy) if len(accuracy) > 0 else 0
-                # if mean_accuracy >= 0:
                 info["mean_accuracy"] = info.get("mean_accuracy", [])
                 info["mean_accuracy"].append(mean_accuracy) 
                 info["updated_time"] = info.get("updated_time", [])
@@ -348,7 +348,7 @@ class LogicService:
                 "top_miner": top_miner,
                 "updated_time": time.time()
             })
-
+            miner_statistics["average_top_accuracy"] = [x for x in miner_statistics["average_top_accuracy"] if x["updated_time"] > time.time() - MAX_STORE_TIME_MEAN_SCORE]
         self.dbhandler.miner_statistics.update_one(
             {"validator_uid": data.validator_uid}, {"$set": miner_statistics}, upsert=True
         )
