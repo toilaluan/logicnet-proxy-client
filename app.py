@@ -329,7 +329,7 @@ class LogicService:
                 info["category"] = data.miner_information[uid]["category"]
         
         try:
-            last_calculate_top_miner_time = miner_statistics["average_top_accuracy"]["updated_time"][-1]
+            last_calculate_top_miner_time = miner_statistics["average_top_accuracy"][-1]["updated_time"]
         except:
             last_calculate_top_miner_time = None
         if not last_calculate_top_miner_time or time.time() - last_calculate_top_miner_time > CAL_MEAN_SCORE_OF_ALL_MINER_DURATION:
