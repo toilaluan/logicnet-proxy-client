@@ -170,7 +170,7 @@ class LogicService:
     async def generate(self, request: Request, synapse_request: SynapseRequest) -> Dict:
         self.sync_db()
         self.check_auth(synapse_request.api_key)
-
+        api_key = synapse_request.api_key
         validatorItems = self.available_validators.items()
         hotkeys = [hotkey for hotkey, log in validatorItems if log["is_active"]]
         hotkeys = [hotkey for hotkey in hotkeys if hotkey in self.metagraph.hotkeys]
@@ -241,7 +241,7 @@ class LogicService:
                 self.auth_keys[api_key]["request_count"] += 1
 
                 self.auth_keys[api_key]["credit"] -= self.model_list[
-                    synapse.category
+                    synapse_request.synapse.category
                 ].get("credit_cost", 0.001)
 
                 self.dbhandler.auth_keys_collection.update_one(
@@ -298,7 +298,26 @@ class LogicService:
         self.dbhandler.miner_information.update_one(
             {"validator_uid": data.validator_uid}, {"$set": data.dict()}, upsert=True
         )
+        miner_statistics = self.dbhandler.miner_statistics.find_one(
+            {"validator_uid": data.validator_uid}
+        )
+        if not miner_statistics:
+            for uid, info in data.miner_information.items():
+                miner_statistics[uid] = {}
 
+        for uid, info in miner_statistics.items():
+            last_update_time = info.get("last_update_time")
+            if data.miner_information[uid].get("category") and ( not last_update_time or time.time() - last_update_time > 5 * 60):
+                reward_logs = data.miner_information[uid]["reward_logs"]
+                accuracy = [x["correctness"] for x in reward_logs]
+                mean_accuracy = sum(accuracy) / len(accuracy) if len(accuracy) > 0 else -1
+                if mean_accuracy >= 0:
+                    info["mean_accuracy"] = info.get("mean_accuracy", []).append(mean_accuracy) 
+                    info["last_update_time"] = time.time()
+                    info["category"] = data.miner_information[uid]["category"] 
+        self.dbhandler.miner_statistics.update_one(
+            {"validator_uid": data.validator_uid}, {"$set": miner_statistics}, upsert=True
+        )
     async def get_miner_information(self):
         validator_info = {}
         for validator in self.dbhandler.miner_information.find():
