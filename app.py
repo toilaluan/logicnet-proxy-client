@@ -46,6 +46,10 @@ limiter = Limiter(key_func=get_api_key)
 MONGO_DB_USERNAME = os.getenv("MONGO_DB_USERNAME")
 MONGO_DB_PASSWORD = os.getenv("MONGO_DB_PASSWORD")
 
+NUM_TOP_MINER = 20
+CAL_MEAN_SCORE_DURATION = 15 * 60
+CAL_MEAN_SCORE_OF_ALL_MINER_DURATION = 60 * 60
+
 # Define a list of allowed origins (domains)
 allowed_origins = [
     "http://localhost:3000",  # Change this to the domain you want to allow
@@ -302,19 +306,49 @@ class LogicService:
             {"validator_uid": data.validator_uid}
         )
         if not miner_statistics:
-            for uid, info in data.miner_information.items():
-                miner_statistics[uid] = {}
+            miner_statistics = {
+                "validator_uid": data.validator_uid,
+                "average_top_accuracy": [],
+                "miner_statistics": {}
+            }
 
-        for uid, info in miner_statistics.items():
-            last_update_time = info.get("last_update_time")
-            if data.miner_information[uid].get("category") and ( not last_update_time or time.time() - last_update_time > 5 * 60):
+            for uid, info in data.miner_information.items():
+                miner_statistics["miner_statistics"][uid] = {}
+
+        for uid, info in miner_statistics["miner_statistics"].items():
+            updated_time = info.get("updated_time")
+            if data.miner_information[uid].get("category") and ( not updated_time or time.time() - updated_time[-1] > CAL_MEAN_SCORE_DURATION):
                 reward_logs = data.miner_information[uid]["reward_logs"]
                 accuracy = [x["correctness"] for x in reward_logs]
-                mean_accuracy = sum(accuracy) / len(accuracy) if len(accuracy) > 0 else -1
-                if mean_accuracy >= 0:
-                    info["mean_accuracy"] = info.get("mean_accuracy", []).append(mean_accuracy) 
-                    info["last_update_time"] = time.time()
-                    info["category"] = data.miner_information[uid]["category"] 
+                mean_accuracy = sum(accuracy) / len(accuracy) if len(accuracy) > 0 else 0
+                # if mean_accuracy >= 0:
+                info["mean_accuracy"] = info.get("mean_accuracy", [])
+                info["mean_accuracy"].append(mean_accuracy) 
+                info["updated_time"] = info.get("updated_time", [])
+                info["updated_time"].append(time.time())
+                info["category"] = data.miner_information[uid]["category"]
+        
+        try:
+            last_calculate_top_miner_time = miner_statistics["average_top_accuracy"]["updated_time"][-1]
+        except:
+            last_calculate_top_miner_time = None
+        if not last_calculate_top_miner_time or time.time() - last_calculate_top_miner_time > CAL_MEAN_SCORE_OF_ALL_MINER_DURATION:
+            mean_accuracy_of_miners = []
+            for uid, info in miner_statistics["miner_statistics"].items():
+                if data.miner_information[uid].get("category"):
+                    lst_acc = [x for i,x in enumerate(info.get("mean_accuracy")) if not last_calculate_top_miner_time or info["updated_time"][i] > last_calculate_top_miner_time]
+                    mean_accuracy_of_miners.append({
+                        "uid": uid,
+                        "mean_accuracy": calculate_mean(lst_acc)
+                    })
+            top_miner = sorted(mean_accuracy_of_miners, key=lambda x: -x["mean_accuracy"])[:NUM_TOP_MINER]
+            avearage_top_miner_acc = calculate_mean([x["mean_accuracy"] for x in top_miner])
+            miner_statistics["average_top_accuracy"].append({
+                "mean_accuracy": avearage_top_miner_acc,
+                "top_miner": top_miner,
+                "updated_time": time.time()
+            })
+
         self.dbhandler.miner_statistics.update_one(
             {"validator_uid": data.validator_uid}, {"$set": miner_statistics}, upsert=True
         )
@@ -327,7 +361,18 @@ class LogicService:
             }
         return validator_info
 
+    async def get_miner_statistics(self):
+        validator_info = {}
+        for validator in self.dbhandler.miner_statistics.find():
+            uid = validator['validator_uid']
+            validator_info[uid] = {
+                "miner_statistics": validator["miner_statistics"],
+                "average_top_accuracy": validator["average_top_accuracy"]
+            }
+        return validator_info
 
+def calculate_mean(lst): 
+    return sum(lst) / len(lst) if len(lst) > 0 else 0
 
 app = LogicService()
 
@@ -352,3 +397,7 @@ async def store_miner_information(data: MinerInformation):
 @app.app.get("/get_miner_information")
 async def get_miner_information():
     return await app.get_miner_information()
+
+@app.app.get("/get_miner_statistics")
+async def get_miner_statistics():
+    return await app.get_miner_statistics()
