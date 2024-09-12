@@ -23,3 +23,5 @@ class CollectionName(Enum):
     MODEL_CONFIG = "model_config"
     PRIVATE_KEY = "private_key"
     MINER_INFOMATION = "miner_information"
+    MINER_STATISTICS = "miner_statistics"
+    

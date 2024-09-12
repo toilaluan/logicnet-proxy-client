@@ -22,12 +22,14 @@ class MongoDBHandler(DBBase):
             self.client[dbname].create_collection(CollectionName.AUTH_KEYS.value)
             self.client[dbname].create_collection(CollectionName.PRIVATE_KEY.value)
             self.client[dbname].create_collection(CollectionName.MINER_INFOMATION.value)
+            self.client[dbname].create_collection(CollectionName.MINER_STATISTICS.value)
 
         self.db = self.client[dbname]
         self.validators_collection = self.db[CollectionName.VALIDATORS.value]
         self.auth_keys_collection = self.db[CollectionName.AUTH_KEYS.value]
         self.private_key = self.db[CollectionName.PRIVATE_KEY.value]
         self.miner_information = self.db[CollectionName.MINER_INFOMATION.value]
+        self.miner_statistics = self.db[CollectionName.MINER_STATISTICS.value]
 
         # Feed data to the collections
         if is_first_time:
